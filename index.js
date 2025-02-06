@@ -1,56 +1,60 @@
-require('dotenv').config(); // Load environment variables
 const express = require('express');
 const { MongoClient } = require('mongodb');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+require('dotenv').config(); // Load environment variables from .env file
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// MongoDB Atlas connection
-const uri = process.env.MONGO_URI || "mongodb+srv://adiwaghmare856a:dvtdAmrE8iswJsxo@cluster0.tu1zi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+// ✅ Enable CORS for all origins
+app.use(cors({
+    origin: '*', // Change '*' to your frontend domain in production
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type'],
+}));
 
-// Middleware
-app.use(cors({ origin: '*' })); // Allow all origins (change for production)
 app.use(bodyParser.json());
 
-// MongoDB Connection
-let client;
-async function connectDB() {
-    if (!client) {
-        client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
-        await client.connect();
-        console.log("✅ Connected to MongoDB Atlas");
-    }
-    return client.db('User');
-}
+// 🔹 MongoDB Atlas connection string (Use environment variables for security)
+const uri = process.env.MONGO_URI || "mongodb+srv://adiwaghmare856a:dvtdAmrE8iswJsxo@cluster0.tu1zi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
-// 🚀 Signup Endpoint
+// ✅ Root Route (Check if server is running)
+app.get('/', (req, res) => {
+    res.send("Server is running...");
+});
+
+// ✅ Signup Route
 app.post('/signup', async (req, res) => {
     const { email, name, password } = req.body;
 
+    let client;
     try {
-        const db = await connectDB();
-        const collection = db.collection('names');
-
-        const existingUser = await collection.findOne({ email });
-        if (existingUser) return res.status(400).json({ message: 'User already exists' });
+        client = new MongoClient(uri);
+        await client.connect();
+        const database = client.db('User');
+        const collection = database.collection('names');
 
         const result = await collection.insertOne({ email, name, password });
         res.status(201).json({ message: 'User registered successfully!', userId: result.insertedId });
     } catch (error) {
-        console.error("❌ Error registering user:", error);
-        res.status(500).json({ message: 'Internal server error' });
+        console.error("Signup Error:", error);
+        res.status(500).json({ message: 'Error registering user' });
+    } finally {
+        if (client) await client.close();
     }
 });
 
-// 🚀 Login Endpoint
+// ✅ Login Route
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
+    let client;
     try {
-        const db = await connectDB();
-        const collection = db.collection('names');
+        client = new MongoClient(uri);
+        await client.connect();
+        const database = client.db('User');
+        const collection = database.collection('names');
 
         const user = await collection.findOne({ email, password });
         if (user) {
@@ -59,53 +63,42 @@ app.post('/login', async (req, res) => {
             res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
     } catch (error) {
-        console.error("❌ Error logging in:", error);
-        res.status(500).json({ message: 'Internal server error' });
+        console.error("Login Error:", error);
+        res.status(500).json({ message: 'Error logging in' });
+    } finally {
+        if (client) await client.close();
     }
 });
 
-// 🚀 Submit Output Endpoint
-app.post('/submit', async (req, res) => {
-    const { email, output } = req.body;
-
-    try {
-        const db = await connectDB();
-        const collection = db.collection('names');
-
-        const result = await collection.updateOne(
-            { email },
-            { $set: { output, updatedAt: new Date() } },
-            { upsert: true }
-        );
-
-        res.status(201).json({ success: true, message: 'Content submitted successfully' });
-    } catch (error) {
-        console.error('❌ Error submitting content:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
-    }
-});
-
-// 🚀 Fetch Names Endpoint
+// ✅ Fetch Names Route
 app.get('/fetch-names', async (req, res) => {
+    let client;
     try {
-        const db = await connectDB();
-        const collection = db.collection('names');
+        client = new MongoClient(uri);
+        await client.connect();
+        const database = client.db('User');
+        const collection = database.collection('names');
 
         const users = await collection.find({}, { projection: { _id: 0, name: 1, email: 1 } }).toArray();
         res.status(200).json(users);
     } catch (error) {
-        console.error("❌ Error fetching names:", error);
-        res.status(500).json({ message: 'Internal server error' });
+        console.error("Fetch Names Error:", error);
+        res.status(500).json({ message: 'Error fetching names' });
+    } finally {
+        if (client) await client.close();
     }
 });
 
-// 🚀 Fetch Output by Email
+// ✅ Fetch Output by Email Route
 app.get('/fetch-output/:email', async (req, res) => {
     const { email } = req.params;
 
+    let client;
     try {
-        const db = await connectDB();
-        const collection = db.collection('names');
+        client = new MongoClient(uri);
+        await client.connect();
+        const database = client.db('User');
+        const collection = database.collection('names');
 
         const user = await collection.findOne({ email }, { projection: { _id: 0, output: 1 } });
         if (user) {
@@ -114,12 +107,14 @@ app.get('/fetch-output/:email', async (req, res) => {
             res.status(404).json({ message: 'User not found' });
         }
     } catch (error) {
-        console.error("❌ Error fetching output:", error);
-        res.status(500).json({ message: 'Internal server error' });
+        console.error("Fetch Output Error:", error);
+        res.status(500).json({ message: 'Error fetching output' });
+    } finally {
+        if (client) await client.close();
     }
 });
 
-// Start the Server
+// ✅ Start Server
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });
