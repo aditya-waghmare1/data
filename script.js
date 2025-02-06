@@ -1,4 +1,5 @@
 // Fetch names from the server
+// Fetch names from the server
 async function fetchNames() {
     try {
         const response = await fetch('https://data-taupe-omega.vercel.app/fetch-names');
@@ -22,6 +23,27 @@ async function fetchNames() {
         console.error('Error fetching names:', error);
     }
 }
+
+// Fetch output based on email
+async function fetchOutput(email) {
+    try {
+        const response = await fetch(`http://localhost:4000/fetch-output/${email}`);
+        const data = await response.json();
+        const outputDiv = document.getElementById('output');
+        outputDiv.textContent = data.output || 'No output available.';
+    } catch (error) {
+        console.error('Error fetching output:', error);
+    }
+}
+
+// Initialize by fetching names
+fetchNames();
+
+// Menu toggle functionality for mobile view
+document.querySelector('.menu-toggle').addEventListener('click', () => {
+    const nav = document.querySelector('nav ul');
+    nav.classList.toggle('active');
+});
 
 // Fetch output based on email
 async function fetchOutput(email) {
