@@ -1,56 +1,56 @@
+require('dotenv').config(); // Load environment variables
 const express = require('express');
 const { MongoClient } = require('mongodb');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
-// MongoDB Atlas connection string
-const uri = "mongodb+srv://adiwaghmare856a:dvtdAmrE8iswJsxo@cluster0.tu1zi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-
-// Initialize express
 const app = express();
-app.use(cors());
+const PORT = process.env.PORT || 4000;
+
+// MongoDB Atlas connection
+const uri = process.env.MONGO_URI || "mongodb+srv://adiwaghmare856a:dvtdAmrE8iswJsxo@cluster0.tu1zi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+
+// Middleware
+app.use(cors({ origin: '*' })); // Allow all origins (change for production)
 app.use(bodyParser.json());
 
-// Handle signup POST request
+// MongoDB Connection
+let client;
+async function connectDB() {
+    if (!client) {
+        client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+        await client.connect();
+        console.log("✅ Connected to MongoDB Atlas");
+    }
+    return client.db('User');
+}
+
+// 🚀 Signup Endpoint
 app.post('/signup', async (req, res) => {
     const { email, name, password } = req.body;
 
-    let client;
     try {
-        client = new MongoClient(uri);
-        await client.connect();
-        console.log("Connected successfully to MongoDB Atlas");
+        const db = await connectDB();
+        const collection = db.collection('names');
 
-        const database = client.db('User');
-        const collection = database.collection('names');
+        const existingUser = await collection.findOne({ email });
+        if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
         const result = await collection.insertOne({ email, name, password });
-        console.log(`New document inserted with _id: ${result.insertedId}`);
-
-        res.status(201).json({ message: 'User registered successfully!' });
+        res.status(201).json({ message: 'User registered successfully!', userId: result.insertedId });
     } catch (error) {
-        console.error("Error connecting to MongoDB Atlas or registering user:", error);
-        res.status(500).json({ message: 'Error registering user' });
-    } finally {
-        if (client) {
-            await client.close();
-            console.log("MongoDB client closed.");
-        }
+        console.error("❌ Error registering user:", error);
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
-// Handle login POST request
+// 🚀 Login Endpoint
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
-    let client;
     try {
-        client = new MongoClient(uri);
-        await client.connect();
-        console.log("Connected successfully to MongoDB Atlas");
-
-        const database = client.db('User');
-        const collection = database.collection('names');
+        const db = await connectDB();
+        const collection = db.collection('names');
 
         const user = await collection.findOne({ email, password });
         if (user) {
@@ -59,28 +59,18 @@ app.post('/login', async (req, res) => {
             res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
     } catch (error) {
-        console.error("Error connecting to MongoDB Atlas or logging in:", error);
-        res.status(500).json({ message: 'Error logging in' });
-    } finally {
-        if (client) {
-            await client.close();
-            console.log("MongoDB client closed.");
-        }
+        console.error("❌ Error logging in:", error);
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
-// Handle submit POST request
+// 🚀 Submit Output Endpoint
 app.post('/submit', async (req, res) => {
     const { email, output } = req.body;
 
-    let client;
     try {
-        client = new MongoClient(uri);
-        await client.connect();
-        console.log("Connected successfully to MongoDB Atlas");
-
-        const database = client.db('User');
-        const collection = database.collection('names');
+        const db = await connectDB();
+        const collection = db.collection('names');
 
         const result = await collection.updateOne(
             { email },
@@ -88,60 +78,34 @@ app.post('/submit', async (req, res) => {
             { upsert: true }
         );
 
-        if (result.matchedCount > 0) {
-            console.log(`Document updated with email: ${email}`);
-        } else {
-            console.log(`New document inserted with email: ${email}`);
-        }
-
         res.status(201).json({ success: true, message: 'Content submitted successfully' });
     } catch (error) {
-        console.error('Error submitting content:', error);
+        console.error('❌ Error submitting content:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
-    } finally {
-        if (client) {
-            await client.close();
-            console.log("MongoDB client closed.");
-        }
     }
 });
 
-// Handle fetch names GET request
+// 🚀 Fetch Names Endpoint
 app.get('/fetch-names', async (req, res) => {
-    let client;
     try {
-        client = new MongoClient(uri);
-        await client.connect();
-        console.log("Connected successfully to MongoDB Atlas");
-
-        const database = client.db('User');
-        const collection = database.collection('names');
+        const db = await connectDB();
+        const collection = db.collection('names');
 
         const users = await collection.find({}, { projection: { _id: 0, name: 1, email: 1 } }).toArray();
         res.status(200).json(users);
     } catch (error) {
-        console.error("Error fetching names:", error);
-        res.status(500).json({ message: 'Error fetching names' });
-    } finally {
-        if (client) {
-            await client.close();
-            console.log("MongoDB client closed.");
-        }
+        console.error("❌ Error fetching names:", error);
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
-// Handle fetch output GET request
+// 🚀 Fetch Output by Email
 app.get('/fetch-output/:email', async (req, res) => {
     const { email } = req.params;
 
-    let client;
     try {
-        client = new MongoClient(uri);
-        await client.connect();
-        console.log("Connected successfully to MongoDB Atlas");
-
-        const database = client.db('User');
-        const collection = database.collection('names');
+        const db = await connectDB();
+        const collection = db.collection('names');
 
         const user = await collection.findOne({ email }, { projection: { _id: 0, output: 1 } });
         if (user) {
@@ -150,18 +114,12 @@ app.get('/fetch-output/:email', async (req, res) => {
             res.status(404).json({ message: 'User not found' });
         }
     } catch (error) {
-        console.error("Error fetching output:", error);
-        res.status(500).json({ message: 'Error fetching output' });
-    } finally {
-        if (client) {
-            await client.close();
-            console.log("MongoDB client closed.");
-        }
+        console.error("❌ Error fetching output:", error);
+        res.status(500).json({ message: 'Internal server error' });
     }
 });
 
-// Start the server
-const PORT = process.env.PORT || 4000;
+// Start the Server
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
