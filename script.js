@@ -2,7 +2,7 @@
 // Fetch names from the server
 async function fetchNames() {
     try {
-        const response = await fetch('https://data-nqxizh8rm-aditya-waghmare1s-projects.vercel.app//fetch-names');
+        const response = await fetch('https://data-nqxizh8rm-aditya-waghmare1s-projects.vercel.app/fetch-names');
         const data = await response.json();
         const userList = document.getElementById('user-list');
         userList.innerHTML = '';
